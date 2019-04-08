@@ -11,10 +11,16 @@
 <div id="app">
     <h1>Vue School – Firebase Authentication</h1>
     <div v-if="authUser">
-        <h2>Signed in as {{ authUser.email }}</h2>
-        <img :src="authUser.photoURL" alt="Avatar" height="150">
+        <h2>
+            Signed in as {{ authUser.email }}
+            <img v-if="linkedGoogle" src="https://www.gstatic.com/mobilesdk/160512_mobilesdk/auth_service_google.svg" alt="Google">
+            <img v-if="linkedPassword" src="https://www.gstatic.com/mobilesdk/160409_mobilesdk/images/auth_service_email.svg" alt="Email">
+        </h2>
+        <img v-if="authUser.photoURL" :src="authUser.photoURL" alt="Avatar" height="150">
         <p>What's up, {{ authUser.displayName || 'friend' }}?</p>
         <button @click="signOut">Sign out</button>
+        <button v-if="!linkedGoogle" @click="linkGoogle">Link Google Account</button>
+        <button v-else @click="unlinkGoogle">Unlink Google Account</button>
 
         <form @submit.prevent="updateProfile">
             <h2>Update Profile</h2>
@@ -29,9 +35,9 @@
             <button>Update</button>
         </form>
 
-        <form @submit.prevent="updateEmail">
-            <h2>Update Email</h2>
-            <input type="text" v-model="email" placeholder="Your email">
+        <form @submit.prevent="updatePassword">
+            <h2>Update Password</h2>
+            <input type="password" v-model="newPassword" placeholder="Your new password">
             <button>Update</button>
         </form>
     </div>
@@ -77,9 +83,23 @@
       password: '',
       authUser: null,
       displayName: null,
-      photoURL: null
+      photoURL: null,
+      newPassword: null
+    },
+    computed: {
+      linkedGoogle() {
+        return !!this.authUser.providerData.find(provider => provider.providerId === 'google.com');
+      },
+      linkedPassword() {
+        return !!this.authUser.providerData.find(provider => provider.providerId === 'password');
+      }
     },
     methods: {
+      linkGoogle() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        this.authUser.linkWithPopup(provider)
+          .catch(error => alert('🤕 ' + error.message));
+      },
       register() {
         firebase.auth().createUserWithEmailAndPassword(this.email, this.password)
           .catch(error => alert('🤕 ' + error.message));
@@ -97,8 +117,16 @@
       signOut() {
         firebase.auth().signOut();
       },
+      unlinkGoogle() {
+        this.authUser.unlink('google.com');
+      },
       updateEmail() {
         this.authUser.updateEmail(this.email);
+      },
+      updatePassword() {
+        this.authUser.updatePassword(this.newPassword)
+          .catch(error => alert('🤕 ' + error.message))
+          .then(() => { this.newPassword = null; });
       },
       updateProfile() {
         this.authUser.updateProfile({
