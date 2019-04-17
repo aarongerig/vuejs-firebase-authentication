@@ -17,7 +17,7 @@
             <img v-if="linkedPassword" src="https://www.gstatic.com/mobilesdk/160409_mobilesdk/images/auth_service_email.svg" alt="Email">
         </h2>
         <img v-if="authUser.photoURL" :src="authUser.photoURL" alt="Avatar" height="150">
-        <p>What's up, {{ authUser.displayName || 'friend' }}?</p>
+        <p>👩‍🍳 Hi {{ authUser.displayName || 'friend' }}, we know you like {{authUser.favoriteFood || 'food'}}.</p>
         <button @click="signOut">Sign out</button>
         <button v-if="!linkedGoogle" @click="linkGoogle">Link Google Account</button>
         <button v-else @click="unlinkGoogle">Unlink Google Account</button>
@@ -26,6 +26,12 @@
             <h2>Update Profile</h2>
             <input type="text" v-model="displayName" placeholder="Your name">
             <input type="text" v-model="photoURL" placeholder="Your photo url">
+            <button>Update</button>
+        </form>
+
+        <form @submit.prevent="updateCustomDetails">
+            <h2>Update Additional Details</h2>
+            <input type="text" v-model="favoriteFood" placeholder="Your favorite food">
             <button>Update</button>
         </form>
 
@@ -78,14 +84,17 @@
 
   new Vue({
     el: '#app',
+
     data: {
-      email: '',
-      password: '',
       authUser: null,
       displayName: null,
-      photoURL: null,
-      newPassword: null
+      email: '',
+      favoriteFood: null,
+      newPassword: null,
+      password: '',
+      photoURL: null
     },
+
     computed: {
       linkedGoogle() {
         return !!this.authUser.providerData.find(provider => provider.providerId === 'google.com');
@@ -94,6 +103,7 @@
         return !!this.authUser.providerData.find(provider => provider.providerId === 'password');
       }
     },
+
     methods: {
       linkGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
@@ -111,8 +121,8 @@
       signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
         firebase.auth().signInWithPopup(provider)
-          .catch(error => alert('🤕 ' + error.message))
-          .then(data => console.log(data.user, data.credential.accessToken));
+          .then(data => console.log(data.user, data.credential.accessToken))
+          .catch(error => alert('🤕 ' + error.message));
       },
       signOut() {
         firebase.auth().signOut();
@@ -120,13 +130,17 @@
       unlinkGoogle() {
         this.authUser.unlink('google.com');
       },
+      updateCustomDetails() {
+        firebase.database().ref('users').child(this.authUser.uid)
+          .update({ favoriteFood: this.favoriteFood });
+      },
       updateEmail() {
         this.authUser.updateEmail(this.email);
       },
       updatePassword() {
         this.authUser.updatePassword(this.newPassword)
-          .catch(error => alert('🤕 ' + error.message))
-          .then(() => { this.newPassword = null; });
+          .then(() => { this.newPassword = null; })
+          .catch(error => alert('🤕 ' + error.message));
       },
       updateProfile() {
         this.authUser.updateProfile({
@@ -143,6 +157,13 @@
           this.displayName = user.displayName;
           this.photoURL = user.photoURL;
           this.email = user.email;
+
+          firebase.database().ref('users').child(user.uid).once('value', snapshot => {
+            if (snapshot.val()) {
+              this.favoriteFood = snapshot.val().favoriteFood;
+              Vue.set(this.authUser, 'favoriteFood', this.favoriteFood);
+            }
+          });
         }
       });
     }
